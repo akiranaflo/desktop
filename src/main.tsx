@@ -6,6 +6,14 @@ import { applyStoredTheme } from "@/shared/utils/storedTheme";
 
 initGlobalErrorHandlers();
 
+// the mobile build is served over http from the local Liner server; the
+// desktop app (file://) has no service worker
+if (typeof navigator !== "undefined" && "serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+  });
+}
+
 const isOverlay = window.location.hash.startsWith("#/overlay");
 
 if (!isOverlay) applyStoredTheme();

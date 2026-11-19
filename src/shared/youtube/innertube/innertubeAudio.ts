@@ -1,5 +1,6 @@
 import { InnertubeError, type InnertubeProfile } from "./innertubeClient";
-import { PLAYBACK_PROFILES } from "./playbackProfiles";
+import { PLAYBACK_PROFILES, WEB_PLAYBACK_PROFILES } from "./playbackProfiles";
+import { YOUTUBE_PROXY, proxiedMediaUrl } from "./youtubeProxy";
 import { log } from "@/shared/utils/logger";
 import {
   resetWebRemixSession,
@@ -112,20 +113,23 @@ export async function resolveDirectAudioStream(
   const failures: string[] = [];
   let profilesTried = 0;
   let profilesRefused = 0;
-  if (!options.profiles && Date.now() >= webRemixRetryAt) {
+  // browser builds have no PO tokens, so WEB_REMIX is skipped and the phone
+  // clients that still return plain stream URLs go first
+  const profiles =
+    options.profiles ??
+    (YOUTUBE_PROXY ? WEB_PLAYBACK_PROFILES : PLAYBACK_PROFILES);
+  if (!options.profiles && !YOUTUBE_PROXY && Date.now() >= webRemixRetryAt) {
     const stream = await resolveViaWebRemix(videoId, options, failures);
     if (stream) return stream;
-  } else if (!options.profiles) {
+  } else if (!options.profiles && !YOUTUBE_PROXY) {
     failures.push(`WEB_REMIX paused: ${lastWebRemixError}`);
   }
-  for (const profile of orderedProfiles(
-    options.profiles ?? PLAYBACK_PROFILES,
-  )) {
+  for (const profile of orderedProfiles(profiles)) {
     profilesTried += 1;
     try {
       const stream = await resolveWithProfile(videoId, profile, options);
       lastWorkingProfile = profile;
-      return stream;
+      return { ...stream, url: proxiedMediaUrl(stream.url) };
     } catch (error) {
       if (options.signal?.aborted) throw error;
       if (isStreamRefused(error)) profilesRefused += 1;

@@ -43,3 +43,42 @@ node server\index.mjs
 
 Если понадобится открыть наружу — поставь reverse proxy с TLS и поменяй `HOST`/`PORT`,
 но тогда клиент надо собирать с `VITE_API_URL` на https-адрес.
+
+## Телефон (Android и iPhone)
+
+Сервер отдаёт мобильную сборку клиента по адресу `http://<ip-компьютера>:1337`
+(порт из `PORT`, `HOST` по умолчанию `0.0.0.0`). Телефон должен быть в той же
+Wi-Fi сети; при первом подключении Windows спросит про доступ к сети для `node.exe` —
+разрешить.
+
+Сборка для телефона собирается отдельно, с проксированием YouTube через сервер
+(в браузере прямой вызов `music.youtube.com` блокируется CORS):
+
+```powershell
+$env:VITE_API_URL="http://192.168.0.100:1337"
+$env:VITE_ALLOW_HTTP_API="1"
+$env:VITE_YOUTUBE_PROXY="http://192.168.0.100:1337/yt"
+pnpm exec vite build --outDir dist-mobile
+```
+
+Иконки для домашнего экрана: `powershell -File scripts/make-pwa-icons.ps1`.
+
+Установка:
+
+- **Android (Chrome)**: открыть `http://<ip>:1337`, меню ⋮ → «Установить приложение».
+- **iPhone (Safari)**: открыть адрес, «Поделиться» → «На экран «Домой»».
+
+Что делает сервер для телефона:
+
+| Ручка | Назначение |
+|---|---|
+| `GET /` | мобильная сборка (SPA, манифест, service worker) |
+| `POST /yt/music/youtubei/v1/*` | InnerTube-запросы (поиск, каталог, плеер) без CORS |
+| `GET /yt/www/sw.js_data` | visitorData для InnerTube |
+| `GET /yt/media?u=<url>` | аудио с googlevideo same-origin, с range-запросами |
+
+Ограничения мобильной версии: нет локальных файлов, скачивания в папку, обоев-видео,
+Discord RPC и оверлея — всё это живёт в Electron-мосте. Плеер использует клиенты
+ANDROID/IOS (без PO-токенов), поэтому часть треков может быть недоступна так же,
+как и на десктопе без токена.
+

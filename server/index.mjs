@@ -15,15 +15,17 @@
 import http from "node:http";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 1337);
-const HOST = process.env.HOST ?? "127.0.0.1";
+const HOST = process.env.HOST ?? "0.0.0.0";
 const DATA_DIR = process.env.LINER_DATA ?? path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "liner.json");
+const WEB_DIR = process.env.LINER_WEB ?? path.join(__dirname, "..", "dist-mobile");
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 
 const ACCESS_TTL_MS = 60 * 60 * 1000;
@@ -287,6 +289,188 @@ function touchList(list) {
   list.revision = (list.revision ?? 1) + 1;
 }
 
+// ----------------------------------------------------------------- static ---
+
+const MIME = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".map": "application/json; charset=utf-8",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".txt": "text/plain; charset=utf-8",
+};
+
+/** serves the mobile build; returns false when the path is not a static file */
+async function serveWeb(url, method, res) {
+  if (method !== "GET" && method !== "HEAD") return false;
+  let rel;
+  try {
+    rel = decodeURIComponent(url.pathname);
+  } catch {
+    return false;
+  }
+  if (rel.includes("\0")) return false;
+
+  const candidates = [];
+  const file = path.normalize(path.join(WEB_DIR, rel));
+  if (file.startsWith(WEB_DIR)) candidates.push(file);
+  if (!path.extname(rel)) candidates.push(path.join(WEB_DIR, "index.html"));
+
+  for (const candidate of candidates) {
+    try {
+      const data = await fsp.readFile(candidate);
+      const ext = path.extname(candidate).toLowerCase();
+      res.writeHead(200, {
+        "content-type": MIME[ext] ?? "application/octet-stream",
+        "content-length": data.byteLength,
+        "cache-control": ext === ".html" ? "no-cache" : "public, max-age=604800",
+        "service-worker-allowed": "/",
+      });
+      res.end(method === "HEAD" ? undefined : data);
+      return true;
+    } catch {
+      /* try the next candidate */
+    }
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------- youtube ---
+
+const YOUTUBE_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+const HOP_HEADERS = new Set([
+  "host",
+  "origin",
+  "referer",
+  "cookie",
+  "content-length",
+  "connection",
+  "accept-encoding",
+  "sec-fetch-site",
+  "sec-fetch-mode",
+  "sec-fetch-dest",
+]);
+
+// only YouTube's own client headers go upstream: forwarding everything the
+// browser sends (sec-ch-ua, accept-language, ...) makes YouTube answer 400
+const UPSTREAM_HEADERS = new Set([
+  "content-type",
+  "accept",
+  "authorization",
+  "x-origin",
+  "x-goog-visitor-id",
+  "x-goog-api-key",
+  "x-goog-pageid",
+  "x-youtube-client-name",
+  "x-youtube-client-version",
+  "x-youtube-device",
+  "x-client-data",
+]);
+
+/**
+ * Browser clients cannot call YouTube directly (CORS), so /yt/<host>/<path>
+ * forwards the request from here. Only the two public YouTube hosts are
+ * reachable, and nothing is cached.
+ */
+async function proxyYoutube(url, parts, method, body, req, res) {
+  const slot = parts[1] === "music" ? "music" : "www";
+  const host = slot === "music" ? "music.youtube.com" : "www.youtube.com";
+  const rest = `/${parts.slice(2).join("/")}${url.search}`;
+
+  const headers = {};
+  for (const [name, value] of Object.entries(req.headers)) {
+    const key = name.toLowerCase();
+    if (!UPSTREAM_HEADERS.has(key) || value === undefined) continue;
+    headers[key] = Array.isArray(value) ? value.join(", ") : value;
+  }
+  headers.origin = `https://${host}`;
+  headers.referer = `https://${host}/`;
+  headers["user-agent"] = YOUTUBE_UA;
+
+  const upstreamBody =
+    method === "POST" || method === "PUT" ? JSON.stringify(body ?? {}) : undefined;
+
+  const upstream = await fetch(`https://${host}${rest}`, {
+    method,
+    headers,
+    body: upstreamBody,
+    redirect: "follow",
+  });
+  const buffer = Buffer.from(await upstream.arrayBuffer());
+  res.writeHead(upstream.status, {
+    "content-type":
+      upstream.headers.get("content-type") ?? "application/json; charset=utf-8",
+    "content-length": buffer.byteLength,
+    "cache-control": "no-store",
+  });
+  res.end(method === "HEAD" ? undefined : buffer);
+}
+
+/** streams a googlevideo file same-origin so media elements can play it */
+async function proxyMedia(url, req, res) {
+  const target = url.searchParams.get("u") ?? "";
+  let mediaUrl;
+  try {
+    mediaUrl = new URL(target);
+  } catch {
+    throw bad("INVALID_URL", "Media url is not valid");
+  }
+  if (
+    mediaUrl.protocol !== "https:" ||
+    !/(^|\.)googlevideo\.com$/.test(mediaUrl.hostname)
+  )
+    throw bad("INVALID_URL", "Only googlevideo media is proxied");
+
+  // googlevideo refuses open-ended ranges ("bytes=0-") and range-less requests,
+  // but media elements start with exactly that: answer with a bounded chunk and
+  // let the element ask for the next one
+  const CHUNK_BYTES = 1024 * 1024;
+  const requested =
+    typeof req.headers.range === "string" && req.headers.range
+      ? req.headers.range
+      : "bytes=0-";
+  const open = /^bytes=(\d+)-$/.exec(requested);
+  const range = open
+    ? `bytes=${open[1]}-${Number(open[1]) + CHUNK_BYTES - 1}`
+    : requested;
+
+  const upstream = await fetch(mediaUrl, {
+    headers: {
+      "user-agent": YOUTUBE_UA,
+      range,
+    },
+    redirect: "follow",
+  });
+
+  const headers = {
+    "content-type": upstream.headers.get("content-type") ?? "audio/webm",
+    "accept-ranges": "bytes",
+    "cache-control": "no-store",
+  };
+  for (const name of ["content-length", "content-range"]) {
+    const value = upstream.headers.get(name);
+    if (value) headers[name] = value;
+  }
+  res.writeHead(upstream.status, headers);
+  if (!upstream.body) return res.end();
+  for await (const chunk of upstream.body) res.write(chunk);
+  res.end();
+}
+
 // ----------------------------------------------------------------- routes ---
 
 async function handle(req, res) {
@@ -308,7 +492,14 @@ async function handle(req, res) {
     return json(res, 200, { status: "ok", uptimeMs: Math.round(process.uptime() * 1000) });
   }
 
-  if (parts[0] !== "v1") throw notFound("Unknown route");
+  if (parts[0] !== "v1") {
+    if (parts[0] === "yt") {
+      if (parts[1] === "media") return proxyMedia(url, req, res);
+      return proxyYoutube(url, parts, method, body, req, res);
+    }
+    if (await serveWeb(url, method, res)) return;
+    throw notFound("Unknown route");
+  }
 
   // ---- auth ---------------------------------------------------------------
   if (parts[1] === "auth") {
@@ -873,6 +1064,11 @@ const CORS_HEADERS = {
 const server = http.createServer(async (req, res) => {
   for (const [name, value] of Object.entries(CORS_HEADERS))
     res.setHeader(name, value);
+  // the browser sends signed Liner headers and YouTube's own client headers;
+  // reflect whatever the preflight asks for instead of keeping a list in sync
+  const requestedHeaders = req.headers["access-control-request-headers"];
+  if (typeof requestedHeaders === "string" && requestedHeaders)
+    res.setHeader("access-control-allow-headers", requestedHeaders);
   const started = Date.now();
   try {
     await handle(req, res);
@@ -898,4 +1094,13 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`Liner local API on http://${HOST}:${PORT}`);
   console.log(`data: ${DB_PATH}`);
+  if (HOST === "0.0.0.0") {
+    for (const [, addresses] of Object.entries(os.networkInterfaces())) {
+      for (const address of addresses ?? []) {
+        if (address.family === "IPv4" && !address.internal) {
+          console.log(`phone: http://${address.address}:${PORT}`);
+        }
+      }
+    }
+  }
 });

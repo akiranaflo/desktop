@@ -1,4 +1,5 @@
 import { parseVisitorData } from "./visitorData";
+import { visitorDataUrl } from "../innertube/youtubeProxy";
 
 /**
  * Client-side YouTube visitorData session manager.
@@ -41,7 +42,7 @@ export async function getClientVisitorData(): Promise<string> {
 
   pendingFetch = (async () => {
     try {
-      const res = await fetch("https://www.youtube.com/sw.js_data", {
+      const res = await fetch(visitorDataUrl(), {
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         headers: {
           "user-agent":

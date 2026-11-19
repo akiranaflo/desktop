@@ -7,6 +7,7 @@ import {
   getYoutubePageId,
 } from "../auth/youtubeAuthSession";
 import { USER_AGENT_HEADER_OVERRIDE } from "./userAgentOverride";
+import { youtubeUrl } from "./youtubeProxy";
 
 export type InnertubeEndpoint =
   "search" | "browse" | "next" | "player" | "account/accounts_list";
@@ -112,7 +113,10 @@ export async function postInnertube(
   const authorization = profile.acceptsOAuth
     ? await getYoutubeAuthorization(options.signal).catch(() => null)
     : null;
-  const url = `${profile.origin}/youtubei/v1/${endpoint}?prettyPrint=false`;
+  const url = youtubeUrl(
+    profile.origin,
+    `/youtubei/v1/${endpoint}?prettyPrint=false`,
+  );
 
   const send = async (): Promise<Response> => {
     const visitorData = await getClientVisitorData().catch(() => "");

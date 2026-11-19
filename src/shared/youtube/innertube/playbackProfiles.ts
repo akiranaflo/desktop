@@ -54,3 +54,43 @@ export const PLAYBACK_PROFILES: readonly InnertubeProfile[] = [
   VISIONOS_PROFILE,
   ANDROID_VR_PROFILE,
 ];
+
+/**
+ * Mobile/web builds play through the server proxy and cannot mint PO tokens,
+ * so they start with the phone clients that still hand out plain stream URLs.
+ */
+export const ANDROID_PROFILE: InnertubeProfile = {
+  clientName: "ANDROID",
+  clientVersion: "20.10.38",
+  clientIdHeader: "3",
+  origin: "https://www.youtube.com",
+  userAgent: "com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip",
+  includeUserAgentInContext: true,
+  extraContext: {
+    androidSdkVersion: 30,
+    osName: "Android",
+    osVersion: "11",
+  },
+};
+
+export const IOS_PROFILE: InnertubeProfile = {
+  clientName: "IOS",
+  clientVersion: "20.10.4",
+  clientIdHeader: "5",
+  origin: "https://www.youtube.com",
+  userAgent:
+    "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X;)",
+  includeUserAgentInContext: true,
+  extraContext: {
+    deviceMake: "Apple",
+    deviceModel: "iPhone16,2",
+    osName: "iPhone",
+    osVersion: "18.1.0.22B83",
+  },
+};
+
+export const WEB_PLAYBACK_PROFILES: readonly InnertubeProfile[] = [
+  ANDROID_PROFILE,
+  IOS_PROFILE,
+  ...PLAYBACK_PROFILES,
+];
