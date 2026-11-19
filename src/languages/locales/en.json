@@ -1,7 +1,4 @@
 {
-  "guest": {
-    "home_hint": "Guest mode: the home feed is served by the Liner account API. Use the search bar above — search, playback, likes and playlists work locally."
-  },
   "artist": {
     "no_biography": "No biography",
     "followers": "followers",
@@ -221,7 +218,9 @@
     "popularPlaylists": "Popular Playlists",
     "dailyMixes": "Your Mixes",
     "dailyMixesSubtitle": "Fresh playlists curated around your favorite artists and genres",
-    "load_failed": "Couldn't load your home feed"
+    "load_failed": "Couldn't load your home feed",
+    "empty_title": "Nothing here yet",
+    "empty_hint": "The home feed is built from what you listen to and like. Use search to find music — everything you play and save lands in your account on this server."
   },
   "library": {
     "title": "Library",

@@ -9,7 +9,6 @@ import {
 } from "./auth-session";
 import { signApiRequest, syncServerTime } from "./requestSigner";
 import { clientCatalog } from "./clientCatalog";
-import { isGuestSession, resolveGuestRequest } from "./guest";
 import { getLocalImportHandler } from "./localImports";
 import type { Track } from "@/shared/contracts";
 import { telemetry } from "@/shared/telemetry";
@@ -250,11 +249,6 @@ async function executeRequest<T>(
 ): Promise<T> {
   const startTime = performance.now();
   const method = (init?.method ?? "GET").toUpperCase();
-
-  // no account: library, likes and playlists live in localStorage
-  const guestAnswer = resolveGuestRequest(path, init);
-  if (guestAnswer) return guestAnswer.value as T;
-
   const rawBody = typeof init?.body === "string" ? init.body : null;
   const signedHeaders = await signApiRequest(method, path, rawBody);
   const currentSession = getAuthSession();
@@ -1218,8 +1212,6 @@ export const api = {
     signal?: AbortSignal,
     hint?: { title: string; artist: string; durationMs?: number },
   ): AsyncGenerator<LyricsStreamEvent> {
-    // lyrics are served by the account API only; guest mode has no lyrics
-    if (isGuestSession()) return;
     const hintParams =
       hint?.title.trim() && hint.artist.trim()
         ? new URLSearchParams({

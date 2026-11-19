@@ -44,6 +44,9 @@ renderer.log
 .liner_local_cache
 signer/
 
+# local api server data
+/server/data/
+
 # agent rules
 AGENTS.md
 GEMINI.md

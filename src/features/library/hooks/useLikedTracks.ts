@@ -1,6 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { api, getAuthSession, toClientTrack } from "@/shared/api";
-import { isGuestSession } from "@/shared/api/guest";
 import { notifyLibraryChanged } from "./usePlaylists";
 import type { Track } from "@/shared/types";
 
@@ -77,7 +76,7 @@ function load(force = false): Promise<void> {
     return request;
   }
   const session = getAuthSession();
-  if (!session?.accessToken && !isGuestSession()) {
+  if (!session?.accessToken) {
     cache = EMPTY;
     loaded = false;
     fetchedFromServer = false;
@@ -89,7 +88,7 @@ function load(force = false): Promise<void> {
   if (!loaded) emit(true);
 
   const startEpoch = likeEpoch;
-  const owner = session?.user?.id ?? null;
+  const owner = session.user?.id ?? null;
   request = (async () => {
     const tracks: Track[] = [];
     let cursor: string | undefined;
@@ -229,7 +228,7 @@ export function applyOptimisticUnlike(trackId: string): () => void {
 if (typeof window !== "undefined") {
   const handleRefresh = () => {
     const session = getAuthSession();
-    if (!session?.accessToken && !isGuestSession()) {
+    if (!session?.accessToken) {
       cache = EMPTY;
       loaded = false;
       fetchedFromServer = false;

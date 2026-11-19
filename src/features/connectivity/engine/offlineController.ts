@@ -1,6 +1,5 @@
 import { showToast } from "@/shared/ui/Toast";
 import { createTranslatorSync, getStoredLocale } from "@/languages";
-import { isGuestSession } from "@/shared/api/guest";
 import {
   readManualOfflineMode,
   useOfflineModeStore,
@@ -270,9 +269,6 @@ export function initOfflineMode(): void {
     useOfflineModeStore.getState().openIssue("offline");
     return;
   }
-  // guest build: the account backend is not part of the app, so its absence
-  // is not an outage worth a modal
-  if (isGuestSession()) return;
   setTimeout(() => {
     if (isOfflineMode()) return;
     void useOfflineModeStore
