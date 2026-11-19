@@ -8,6 +8,7 @@ import {
   type ApiUserPlaylistItem,
 } from "@/shared/api";
 import { queryCache } from "@/shared/cache/queryCache";
+import { isGuestSession } from "@/shared/api/guest";
 import type { Track } from "@/shared/types";
 
 export interface LibraryPlaylistSummary {
@@ -115,7 +116,7 @@ const SERVER_SNAPSHOT = {
 function load(force = false): Promise<void> {
   if (request) return request;
   const session = getAuthSession();
-  if (!session?.accessToken) {
+  if (!session?.accessToken && !isGuestSession()) {
     cache = EMPTY;
     loaded = false;
     emit();
@@ -201,7 +202,7 @@ function load(force = false): Promise<void> {
 if (typeof window !== "undefined") {
   const handleRefresh = () => {
     const session = getAuthSession();
-    if (!session?.accessToken) {
+    if (!session?.accessToken && !isGuestSession()) {
       cache = EMPTY;
       loaded = false;
       emit();

@@ -1,4 +1,7 @@
 {
+  "guest": {
+    "home_hint": "Guest mode: the home feed is served by the Liner account API. Use the search bar above — search, playback, likes and playlists work locally."
+  },
   "artist": {
     "no_biography": "No biography",
     "followers": "followers",

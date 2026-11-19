@@ -490,17 +490,15 @@ function createWindow() {
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
+    // guest build: keep the built-in renderer. The OTA manager stays inert
+    // (dead updater URL) so a signed bundle from updates.tryliner.fun can never
+    // replace the patched UI on the next launch.
     bundleManager = new BundleManager({
       defaultRendererDist: RENDERER_DIST,
+      updaterUrl: "http://127.0.0.1:9",
     });
     bundleManager.setMainWindow(mainWindow);
-    const manager = bundleManager;
-    const win = mainWindow;
-    void (async () => {
-      if (app.isPackaged && !IS_STAGING)
-        await manager.updateBeforeLaunch().catch(() => undefined);
-      if (!win.isDestroyed()) win.loadFile(manager.getEffectiveIndexPath());
-    })();
+    void mainWindow.loadFile(path.join(RENDERER_DIST, "index.html"));
   }
 
   mainWindow.once("ready-to-show", () => {
@@ -627,9 +625,7 @@ if (!gotTheLock) {
       RENDERER_DIST,
     );
     overlayManager.setIndexPathResolver(
-      () =>
-        bundleManager?.getEffectiveIndexPath() ??
-        path.join(RENDERER_DIST, "index.html"),
+      () => path.join(RENDERER_DIST, "index.html"),
     );
     overlayManager.setMainWindow(mainWindow);
     // F in the overlay: the window grows back out of the pill (windows 11 + add-on)
@@ -2056,8 +2052,9 @@ if (!gotTheLock) {
       };
     });
 
-    // automatic update check after window initialization (packaged app only)
-    if (app.isPackaged && !IS_STAGING) {
+    // guest build: update checks are off on purpose. An official app update or
+    // an OTA renderer bundle would put the login wall back.
+    if (false as boolean) {
       setTimeout(() => {
         autoUpdater.checkForUpdates().catch((err) => {
           console.error(

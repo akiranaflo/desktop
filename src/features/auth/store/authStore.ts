@@ -18,6 +18,7 @@ import {
 } from "@/shared/cache/screenCache";
 import { useSearchHistoryStore } from "@/features/search/store/searchHistoryStore";
 import { prefersSignOutWithLiner, signOutYoutube } from "@/shared/youtube";
+import { GUEST_USER } from "@/shared/api/guest";
 
 export type AuthStatus = "initializing" | "authenticated" | "anonymous";
 export type AuthState = {
@@ -41,7 +42,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   initialize: async () => {
     const stored = getAuthSession();
     if (!stored) {
-      set({ status: "anonymous", user: null });
+      // guest build: no login wall, local profile instead of an account
+      set({ status: "authenticated", user: GUEST_USER });
       return;
     }
     // Optimistically authenticate if stored user is present
@@ -95,14 +97,14 @@ export const useAuthStore = create<AuthState>((set) => ({
           return;
         }
         setAuthSession(null);
-        set({ status: "anonymous", user: null });
+        set({ status: "authenticated", user: GUEST_USER });
       } else {
         // If it's a network error, timeout, or transient 5xx, preserve authenticated state if we have a stored session
         if (stored.user || stored.accessToken) {
           set({ status: "authenticated", user: stored.user });
         } else {
           setAuthSession(null);
-          set({ status: "anonymous", user: null });
+          set({ status: "authenticated", user: GUEST_USER });
         }
       }
     }
@@ -151,7 +153,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     clearPersistedScreenCache();
     useSearchHistoryStore.getState().clearHistory();
     await runSignOutTasks(SIGN_OUT_TASKS_TIMEOUT_MS);
-    set({ status: "anonymous", user: null });
+    set({ status: "authenticated", user: GUEST_USER });
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("library:changed"));
     }

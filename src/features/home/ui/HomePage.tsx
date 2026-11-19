@@ -9,6 +9,7 @@ import { useRecentlyPlayed } from "../hooks/useRecentlyPlayed";
 import { useDailyMixes } from "../hooks/useDailyMixes";
 import { useMostSaved, usePopularAlbums } from "../hooks/useExploreCollections";
 import { useTranslation } from "@/languages";
+import { isGuestSession } from "@/shared/api/guest";
 import Button from "@/shared/ui/Button";
 import { usePageBackdrop } from "@/shared/lib";
 import { useHomeBackdrop } from "../hooks/useHomeBackdrop";
@@ -85,18 +86,22 @@ function HomeFeed({ onRetry }: { onRetry: () => void }) {
         {isReady && nothingLoaded && (
           <div className="col-start-1 row-start-1 flex min-h-[60vh] w-full flex-col items-center justify-center gap-[6px] px-[24px] text-center">
             <span className="text-title font-[600] text-text-primary">
-              {t("home.load_failed")}
+              {isGuestSession() ? t("guest.home_hint") : t("home.load_failed")}
             </span>
-            <span className="text-body text-text-secondary">
-              {t("playlist.load_failed_desc")}
-            </span>
-            <Button
-              variant="secondary"
-              onClick={onRetry}
-              className="mt-[10px] !h-[36px] !rounded-[10px] !border-0 px-[16px]"
-            >
-              {t("offline.try_again")}
-            </Button>
+            {!isGuestSession() && (
+              <>
+                <span className="text-body text-text-secondary">
+                  {t("playlist.load_failed_desc")}
+                </span>
+                <Button
+                  variant="secondary"
+                  onClick={onRetry}
+                  className="mt-[10px] !h-[36px] !rounded-[10px] !border-0 px-[16px]"
+                >
+                  {t("offline.try_again")}
+                </Button>
+              </>
+            )}
           </div>
         )}
 
