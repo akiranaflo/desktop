@@ -8,6 +8,18 @@ import type { SavedTrackLibrary } from "../saved-tracks/library.js";
 
 export const LOCAL_TRACK_SCHEME = "liner-local";
 
+type ExtraResolver = (
+  host: string,
+  id: string,
+) => Promise<{ path: string; mimeType?: string } | null> | null;
+
+let extraResolver: ExtraResolver | null = null;
+
+/** lets other features (custom wallpaper) serve files over liner-local:// */
+export function setLocalProtocolResolver(resolver: ExtraResolver | null): void {
+  extraResolver = resolver;
+}
+
 const IMAGE_MIME: Record<string, string> = {
   ".jpg": "image/jpeg",
   ".png": "image/png",
@@ -99,6 +111,10 @@ async function locateFile(
   }
   if (host === "saved-audio") return saved.locate("audio", id);
   if (host === "saved-cover") return saved.locate("cover", id);
+  if (extraResolver) {
+    const extra = await extraResolver(host, id);
+    if (extra) return extra;
+  }
   return null;
 }
 

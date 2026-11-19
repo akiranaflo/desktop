@@ -8,6 +8,7 @@ import type { TvSession as YoutubeTvSession } from "./youtube/tv-session";
 import type { SolveResult as YoutubeSolveResult } from "./youtube/n-solver";
 import type { MainNetResult } from "./netdiag";
 import type { NetProbeResult } from "./netprobe/types";
+import type { WallpaperState } from "./wallpaper";
 import type {
   LocalImportResult,
   LocalLibraryUsage,
@@ -74,6 +75,9 @@ export interface LinerElectronApi {
   isFullScreen: () => Promise<boolean>;
   getRememberWindowBounds: () => Promise<boolean>;
   setRememberWindowBounds: (enabled: boolean) => Promise<boolean>;
+  getWallpaper: () => Promise<WallpaperState | null>;
+  pickWallpaper: () => Promise<WallpaperState | null>;
+  clearWallpaper: () => Promise<boolean>;
   onWindowStateChange: (cb: (state: WindowState) => void) => () => void;
   onWindowRestored?: (cb: () => void) => () => void;
   onWindowMinimized?: (cb: () => void) => () => void;
@@ -255,6 +259,9 @@ const api: LinerElectronApi = {
     ipcRenderer.invoke("window:get-remember-bounds"),
   setRememberWindowBounds: (enabled) =>
     ipcRenderer.invoke("window:set-remember-bounds", enabled),
+  getWallpaper: () => ipcRenderer.invoke("wallpaper:current"),
+  pickWallpaper: () => ipcRenderer.invoke("wallpaper:pick"),
+  clearWallpaper: () => ipcRenderer.invoke("wallpaper:clear"),
   onWindowStateChange: (cb) => {
     const listener = (_event: unknown, state: WindowState) => cb(state);
     ipcRenderer.on("window:state-changed", listener);

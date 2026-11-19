@@ -578,6 +578,17 @@
   },
   "settings": {
     "title": "Settings",
+    "wallpaper": {
+      "title": "Custom wallpaper",
+      "description": "A photo, GIF or video behind the whole app",
+      "empty": "No wallpaper selected",
+      "pick": "Choose file",
+      "change": "Change wallpaper",
+      "picking": "Opening…",
+      "clear": "Remove",
+      "blur": "Blur",
+      "dim": "Dimming"
+    },
     "search_placeholder": "Search settings...",
     "subtitle": "Manage your preferences",
     "reset_defaults": "Reset to defaults",

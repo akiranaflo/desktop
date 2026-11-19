@@ -5,6 +5,7 @@ import { MenuSelect, ToggleSwitch } from "@/shared/ui";
 import { revealThemeChange } from "@/shared/lib";
 import { SettingBlock, SettingRow, SettingSection } from "../controls";
 import { ThemeCard } from "./ThemeCard";
+import { WallpaperSection } from "./WallpaperSection";
 
 export function AppearanceTab({ searchQuery }: { searchQuery?: string }) {
   const { t, locale, setLocale } = useTranslation();
@@ -95,6 +96,8 @@ export function AppearanceTab({ searchQuery }: { searchQuery?: string }) {
           </div>
         ) : null}
       </SettingBlock>
+
+      <WallpaperSection searchQuery={searchQuery} />
 
       {electron?.setRememberWindowBounds ? (
         <SettingRow

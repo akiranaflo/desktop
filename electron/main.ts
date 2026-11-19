@@ -96,7 +96,17 @@ import {
   installNetSimulation,
   simulatedResponseStatus,
 } from "./netsim/install.js";
-import { registerLocalTrackScheme } from "./local-tracks/protocol.js";
+import {
+  registerLocalTrackScheme,
+  setLocalProtocolResolver,
+} from "./local-tracks/protocol.js";
+import {
+  clearWallpaper,
+  currentWallpaper,
+  pickWallpaper,
+  resolveWallpaperFile,
+  wallpaperMimeType,
+} from "./wallpaper.js";
 import { attachZoomControls } from "./zoom.js";
 import {
   YOUTUBE_REQUEST_URLS,
@@ -128,6 +138,14 @@ if (detectCompositor() !== "none") {
   app.commandLine.appendSwitch("enable-features", "GlobalShortcutsPortal");
 }
 registerLocalTrackScheme();
+
+// custom wallpaper files are served through the same privileged scheme
+setLocalProtocolResolver((host, id) => {
+  if (host !== "wallpaper") return null;
+  const file = resolveWallpaperFile(id);
+  if (!file || !fs.existsSync(file)) return null;
+  return Promise.resolve({ path: file, mimeType: wallpaperMimeType(file) });
+});
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -731,6 +749,18 @@ if (!gotTheLock) {
         remember ? mainWindowSnapshot() : null,
       );
       return remember;
+    });
+
+    handleTrusted("wallpaper:current", () => currentWallpaper());
+
+    handleTrusted("wallpaper:pick", async (event) => {
+      const owner = BrowserWindow.fromWebContents(event.sender);
+      return pickWallpaper(owner);
+    });
+
+    handleTrusted("wallpaper:clear", () => {
+      clearWallpaper();
+      return true;
     });
 
     handleTrusted("app:get-version", () => {

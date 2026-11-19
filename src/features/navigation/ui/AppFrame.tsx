@@ -30,6 +30,7 @@ import WindowControlsNotch from "./WindowControlsNotch";
 import RightDrawer from "./RightDrawer";
 import { FullscreenRouteContext } from "../fullscreenRouteContext";
 import DynamicBlurBackground from "./DynamicBlurBackground";
+import { WallpaperLayer, useHasWallpaper } from "@/features/wallpaper";
 import { useGlobalShortcuts } from "../hooks/useGlobalShortcuts";
 import { useDisableButtonFocus } from "../hooks/useDisableButtonFocus";
 import { useWindowPresence } from "../hooks/useWindowPresence";
@@ -726,12 +727,17 @@ export default function AppFrame({ children }: AppFrameProps) {
   const hasPageBackdrop = useHasPageBackdrop();
   const coverGlow = useEffectiveCoverGlow();
   const glassBlur = useGlassBlur();
+  const hasWallpaper = useHasWallpaper();
 
   return (
     <div
       ref={appFrameRef}
       className={`app-shell-enter relative flex flex-col h-full w-full overflow-hidden p-1.5 gap-1.5 ${
-        isFullscreenPlayer ? "bg-black" : "bg-bg-canvas"
+        isFullscreenPlayer
+          ? "bg-black"
+          : hasWallpaper
+            ? "bg-transparent"
+            : "bg-bg-canvas"
       } ${isEdgeToEdge ? "rounded-none" : "rounded-item"}`}
       style={isEdgeToEdge ? undefined : { clipPath: "inset(0 round 12px)" }}
       onScroll={(e) => {
@@ -739,6 +745,7 @@ export default function AppFrame({ children }: AppFrameProps) {
         if (e.currentTarget.scrollTop !== 0) e.currentTarget.scrollTop = 0;
       }}
     >
+      {hasWallpaper ? <WallpaperLayer /> : null}
       {coverGlow ? <DynamicBlurBackground isDark={isDark} /> : null}
 
       <AnimatePresence>
