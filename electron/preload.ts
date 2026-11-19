@@ -9,6 +9,7 @@ import type { SolveResult as YoutubeSolveResult } from "./youtube/n-solver";
 import type { MainNetResult } from "./netdiag";
 import type { NetProbeResult } from "./netprobe/types";
 import type { WallpaperState } from "./wallpaper";
+import type { DownloadFileInput } from "./downloads";
 import type {
   LocalImportResult,
   LocalLibraryUsage,
@@ -78,6 +79,11 @@ export interface LinerElectronApi {
   getWallpaper: () => Promise<WallpaperState | null>;
   pickWallpaper: () => Promise<WallpaperState | null>;
   clearWallpaper: () => Promise<boolean>;
+  getDownloadsFolder: () => Promise<string>;
+  chooseDownloadsFolder: () => Promise<string | null>;
+  openDownloadsFolder: () => Promise<string>;
+  saveDownload: (input: DownloadFileInput) => Promise<string | null>;
+  revealDownloadedFile: (filePath: string) => Promise<boolean>;
   onWindowStateChange: (cb: (state: WindowState) => void) => () => void;
   onWindowRestored?: (cb: () => void) => () => void;
   onWindowMinimized?: (cb: () => void) => () => void;
@@ -262,6 +268,12 @@ const api: LinerElectronApi = {
   getWallpaper: () => ipcRenderer.invoke("wallpaper:current"),
   pickWallpaper: () => ipcRenderer.invoke("wallpaper:pick"),
   clearWallpaper: () => ipcRenderer.invoke("wallpaper:clear"),
+  getDownloadsFolder: () => ipcRenderer.invoke("downloads:folder"),
+  chooseDownloadsFolder: () => ipcRenderer.invoke("downloads:choose-folder"),
+  openDownloadsFolder: () => ipcRenderer.invoke("downloads:open-folder"),
+  saveDownload: (input) => ipcRenderer.invoke("downloads:save", input),
+  revealDownloadedFile: (filePath) =>
+    ipcRenderer.invoke("downloads:reveal", filePath),
   onWindowStateChange: (cb) => {
     const listener = (_event: unknown, state: WindowState) => cb(state);
     ipcRenderer.on("window:state-changed", listener);

@@ -17,6 +17,7 @@ import {
 import { SegmentedControl, SettingRow, SettingSection } from "../controls";
 import { StorageSizeAction } from "./StorageSizeAction";
 import { StorageFolderButton } from "./StorageFolderButton";
+import { DownloadsFolderRow } from "./DownloadsFolderRow";
 import { useSongEstimate } from "./StorageOverview";
 
 const GB = 1024 * 1024 * 1024;
@@ -205,6 +206,8 @@ export function StorageDownloadsSection({
           />
         }
       />
+
+      <DownloadsFolderRow searchQuery={searchQuery} />
 
       <SettingRow
         title={t("settings.storage.downloads_limit")}

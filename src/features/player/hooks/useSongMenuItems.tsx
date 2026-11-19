@@ -8,6 +8,7 @@ import {
   LuTrash2,
   LuFolderPlus,
   LuEraser,
+  LuDownload,
 } from "react-icons/lu";
 import { ShareForwardLine } from "@mingcute/react";
 import type { DropdownMenuItem } from "@/shared/ui/DropdownMenu";
@@ -20,10 +21,12 @@ import {
 } from "@/features/library";
 import { useTranslation } from "@/languages";
 import { showToast } from "@/shared/ui";
+import { dismissToast } from "@/shared/ui/Toast";
 import { buildShareUrl } from "@/shared/utils/share";
 import { isLocalTrackId } from "@/shared/media/local";
 import { useIsTrackCached } from "@/features/library/cached/hooks/useIsTrackCached";
 import { removeTrackFromCache } from "@/shared/utils/cacheManager";
+import { downloadTrackToFolder } from "@/features/library/downloads";
 
 const CLOUD_ONLY_ITEMS = new Set([
   "start-radio",
@@ -32,6 +35,7 @@ const CLOUD_ONLY_ITEMS = new Set([
   "add-to-playlist",
   "remove-from-playlist",
   "share",
+  "download-track",
 ]);
 
 export interface SongMenuContext {
@@ -103,6 +107,41 @@ export function useSongMenuItems(ctx: SongMenuContext): DropdownMenuItem[] {
       });
     }
   }, [id, searchType, title, artists, t]);
+
+  const handleDownload = useCallback(() => {
+    if (!id) return;
+    const toastId = `download-${id}`;
+    const description = artists ? `${title} — ${artists}` : title;
+    showToast(t("common.downloading"), "loader", {
+      id: toastId,
+      description,
+    });
+    void downloadTrackToFolder({ id, title, artists, durationMs })
+      .then((filePath) => {
+        dismissToast(toastId);
+        if (!filePath) {
+          showToast(t("common.download_failed"), "error", { description });
+          return;
+        }
+        const name = filePath.split(/[\\/]/).pop() ?? filePath;
+        showToast(t("common.downloaded"), "checkmark", {
+          description: name,
+          action: {
+            label: t("common.show_in_folder"),
+            onClick: () =>
+              void window.linerElectron?.revealDownloadedFile?.(filePath),
+          },
+        });
+      })
+      .catch((error: unknown) => {
+        dismissToast(toastId);
+        showToast(t("common.download_failed"), "error", {
+          description: String(
+            (error as Error | undefined)?.message ?? error ?? "",
+          ).slice(0, 160),
+        });
+      });
+  }, [id, title, artists, durationMs, t]);
 
   const buildMenu = useCallback((): DropdownMenuItem[] => {
     const isTrack = searchType === "track" || !searchType;
@@ -179,6 +218,12 @@ export function useSongMenuItems(ctx: SongMenuContext): DropdownMenuItem[] {
             label: t("common.share"),
             icon: <ShareForwardLine size={15} />,
             onClick: handleShare,
+          },
+          {
+            id: "download-track",
+            label: t("common.download"),
+            icon: <LuDownload size={15} />,
+            onClick: handleDownload,
           },
           {
             id: "remove-from-playlist",
@@ -288,6 +333,12 @@ export function useSongMenuItems(ctx: SongMenuContext): DropdownMenuItem[] {
           icon: <ShareForwardLine size={15} />,
           onClick: handleShare,
         },
+        {
+          id: "download-track",
+          label: t("common.download"),
+          icon: <LuDownload size={15} />,
+          onClick: handleDownload,
+        },
         ...(onRemoveFromQueue
           ? [
               {
@@ -342,6 +393,7 @@ export function useSongMenuItems(ctx: SongMenuContext): DropdownMenuItem[] {
     liked,
     handleLike,
     handleShare,
+    handleDownload,
     playlistsData,
     t,
   ]);

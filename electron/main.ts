@@ -107,6 +107,13 @@ import {
   resolveWallpaperFile,
   wallpaperMimeType,
 } from "./wallpaper.js";
+import {
+  chooseDownloadsFolder,
+  downloadsFolder,
+  openDownloadsFolder,
+  revealDownloadedFile,
+  saveDownloadFile,
+} from "./downloads.js";
 import { attachZoomControls } from "./zoom.js";
 import {
   YOUTUBE_REQUEST_URLS,
@@ -762,6 +769,30 @@ if (!gotTheLock) {
       clearWallpaper();
       return true;
     });
+
+    handleTrusted("downloads:folder", () => downloadsFolder());
+
+    handleTrusted("downloads:choose-folder", (event) =>
+      chooseDownloadsFolder(BrowserWindow.fromWebContents(event.sender)),
+    );
+
+    handleTrusted("downloads:open-folder", () => openDownloadsFolder());
+
+    handleTrusted("downloads:save", (_event, input: unknown) => {
+      if (!input || typeof input !== "object") return null;
+      const raw = input as Record<string, unknown>;
+      const fileName =
+        typeof raw.fileName === "string" ? raw.fileName.slice(0, 200) : "";
+      const mimeType =
+        typeof raw.mimeType === "string" ? raw.mimeType.slice(0, 100) : "";
+      const data = raw.data;
+      if (!(data instanceof Uint8Array) || !mimeType) return null;
+      return saveDownloadFile({ fileName, mimeType, data });
+    });
+
+    handleTrusted("downloads:reveal", (_event, filePath: unknown) =>
+      typeof filePath === "string" ? revealDownloadedFile(filePath) : false,
+    );
 
     handleTrusted("app:get-version", () => {
       return app.getVersion();
