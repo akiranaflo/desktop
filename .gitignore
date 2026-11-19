@@ -47,6 +47,16 @@ signer/
 
 # local api server data
 /server/data/
+/server/downloads/
+
+# android shell
+/mobile/node_modules
+/mobile/android/.gradle
+/mobile/android/build
+/mobile/android/app/build
+/mobile/android/local.properties
+/mobile/android/app/src/main/assets/public
+*.keystore
 
 # agent rules
 AGENTS.md

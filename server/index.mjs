@@ -26,6 +26,7 @@ const HOST = process.env.HOST ?? "0.0.0.0";
 const DATA_DIR = process.env.LINER_DATA ?? path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "liner.json");
 const WEB_DIR = process.env.LINER_WEB ?? path.join(__dirname, "..", "dist-mobile");
+const DOWNLOAD_DIR = path.join(__dirname, "downloads");
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 
 const ACCESS_TTL_MS = 60 * 60 * 1000;
@@ -471,6 +472,31 @@ async function proxyMedia(url, req, res) {
   res.end();
 }
 
+/** streams build artifacts (the android apk) for the phone to download */
+async function serveDownload(url, method, res) {
+  if (method !== "GET" && method !== "HEAD") return false;
+  const name = path.basename(decodeURIComponent(url.pathname));
+  const file = path.join(DOWNLOAD_DIR, name);
+  if (!file.startsWith(DOWNLOAD_DIR)) return false;
+  let data;
+  try {
+    data = await fsp.readFile(file);
+  } catch {
+    return false;
+  }
+  const type = name.endsWith(".apk")
+    ? "application/vnd.android.package-archive"
+    : "application/octet-stream";
+  res.writeHead(200, {
+    "content-type": type,
+    "content-length": data.byteLength,
+    "content-disposition": `attachment; filename="${name}"`,
+    "cache-control": "no-store",
+  });
+  res.end(method === "HEAD" ? undefined : data);
+  return true;
+}
+
 // ----------------------------------------------------------------- routes ---
 
 async function handle(req, res) {
@@ -496,6 +522,10 @@ async function handle(req, res) {
     if (parts[0] === "yt") {
       if (parts[1] === "media") return proxyMedia(url, req, res);
       return proxyYoutube(url, parts, method, body, req, res);
+    }
+    if (parts[0] === "download") {
+      if (await serveDownload(url, method, res)) return;
+      throw notFound("File not found");
     }
     if (await serveWeb(url, method, res)) return;
     throw notFound("Unknown route");
