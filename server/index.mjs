@@ -322,11 +322,12 @@ async function handle(req, res) {
       const username = (url.searchParams.get("username") ?? "")
         .trim()
         .toLowerCase();
-      if (!USERNAME_RE.test(username))
-        return json(res, 200, { username, valid: false });
+      const valid = USERNAME_RE.test(username);
+      // the client reads both flags: valid = format, available = free to take
       return json(res, 200, {
         username,
-        valid: !findUserByUsername(username),
+        valid,
+        available: valid && !findUserByUsername(username),
       });
     }
 
